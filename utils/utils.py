@@ -10,8 +10,6 @@ import paramiko
 from contextlib import contextmanager
 from getpass import getpass
 import re
-import pdb
-
 
 def rm_nans(*args):
     """
@@ -59,25 +57,6 @@ def isin(tt, tbounds, inclusive_left=False, inclusive_right=False):
         for tbound in tbounds:
             tf = tf | isin_single_interval(tt, tbound, inclusive_left, inclusive_right)
     return tf.astype(bool)
-
-
-
-def grp2idx(groups):
-    """
-    convert group string groups to group numbers
-
-    :param groups: list of strings e.g. ['a','b','c','a','c','b'] or np.array of strings
-    :return:
-        idx: np.array of integers indicating group
-        group_labels: group groups as a list
-    """
-    groups = np.array(groups)
-    group_labels = np.unique(groups)
-    idx = np.zeros(groups.shape, dtype=int)
-    for i, group_label in enumerate(group_labels):
-        idx[groups == group_label] = i
-
-    return idx, group_labels
 
 
 class Memoize:
@@ -230,7 +209,6 @@ def threshcross(signal, thresh=0, direction='up'):
         return np.where(cross != 0)[0] + 1
 
 
-
 def lagmatrix(x, y, lead, lag):
     """
     output lagmatrix x which has lead and lag compared to y
@@ -324,9 +302,33 @@ def findall(string, sub):
     return [m.start() for m in re.finditer(sub, string)]
 
 
-def shuffled(x):
-    y = x[:]
-    np.random.shuffle(y)
+def shuffled(x, axis=None):
+    """
+    Shuffles `x` along dimension.
+
+    Parameters
+    ----------
+    x: array_like
+    axis: None or int or tuple of ints, optional
+        The axis or axes along which to shuffle the data. Default=0
+
+    Returns
+    -------
+    y: ndarray
+        Shuffled data
+    """
+    if axis is None:
+        axis = 0
+
+    axis = np.array(axis)  # Needed if axis is int to make iterable
+
+    y = x[:]  # copy data
+
+    for aa in axis:
+        y = np.swapaxes(y, 0, aa)
+        np.random.shuffle(y)
+        y = np.swapaxes(y, aa, 0)
+
     return y
 
 
@@ -348,9 +350,10 @@ def col_corr(X, Y, rm_nans=True):
 
     Parameters
     ================
-    X : numpy.array(N x K)
-    Y :
-    rm_nans : bool, optional, default=True
+    X: numpy.array(N x K)
+    Y:
+    rm_nans : bool, optional
+        default=True
 
     Output
     ================
@@ -382,3 +385,26 @@ def col_corr(X, Y, rm_nans=True):
 def groupby(dat, ids):
     uids = np.unique(ids)
     return [(x, dat[ids == x]) for x in uids]
+
+
+def stratified_bootstrap(labels):
+    """
+    Performs a single stratified sampling with replacement. Each class
+    is sampled individually to preserve the number of samples per class
+
+    Parameters:
+    - labels            array_like    List of class labels
+
+    Returns:
+    - out               ndarray    List of indices
+    """
+    labels = np.array(labels)  # Needed for list of strings.
+
+    all_inds_int = []
+    for label in np.unique(labels):
+        inds_ints = np.where(labels == label)[0]
+        all_inds_int.append(np.random.choice(inds_ints, size=(len(inds_ints),)))
+
+    all_inds_int = np.array(all_inds_int)
+
+    return all_inds_int
